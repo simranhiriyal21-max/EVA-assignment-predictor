@@ -1,7 +1,10 @@
 flask
+flask-cors
+requests
 joblib
 scikit-learn
 lightgbm
 xgboost
 pandas
 numpy
+gunicorn
