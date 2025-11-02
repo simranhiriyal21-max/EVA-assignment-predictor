@@ -1,10 +1,8 @@
 streamlit
 lightgbm
 xgboost
-scikit-learn
+scikit-learn==1.6.1
 joblib
 pandas
 numpy
-sentence-transformers
-transformers
 
