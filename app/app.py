@@ -1,32 +1,30 @@
+# inside app/app.py
 import streamlit as st
-import requests
+import joblib
+import os
 
-# Page settings
-st.set_page_config(page_title="EVA — AI Ticket Classifier", layout="centered")
+@st.cache_resource
+def load_artifacts():
+    base_dir = os.path.dirname(__file__)  # this points to app/ when running app/app.py
+    # If you run from repo root, adjust accordingly:
+    # base_dir = os.path.join(os.path.dirname(__file__), '..')  # alternative
+    model_dir = os.path.normpath(os.path.join(base_dir, '..', 'model'))  # moves up to repo root then to model/
+    lgb_path = os.path.join(model_dir, 'model_lgb.joblib')
+    tfidf_path = os.path.join(model_dir, 'tfidf_vectorizer.joblib')
+    label_enc_path = os.path.join(model_dir, 'label_encoder.joblib')
 
-st.title("🎫 EVA — AI-Driven Ticket Classifier")
-st.write("Enter an IT ticket description below to predict which assignment group should handle it.")
+    lgb = None
+    tfv = None
+    le = None
+    if os.path.exists(lgb_path):
+        lgb = joblib.load(lgb_path)
+    if os.path.exists(tfidf_path):
+        tfv = joblib.load(tfidf_path)
+    if os.path.exists(label_enc_path):
+        le = joblib.load(label_enc_path)
 
-# Input field
-text = st.text_area("📝 Ticket Description", height=200, placeholder="Example: VPN not connecting from home network")
+    return lgb, tfv, le
 
-# API endpoint (replace with your deployed API URL later)
-API_URL = "https://your-api-url.onrender.com/predict"
+lgb_model, tfv, label_encoder = load_artifacts()
 
-if st.button("🔍 Predict Assignment"):
-    if not text.strip():
-        st.warning("Please enter a valid ticket description.")
-    else:
-        try:
-            response = requests.post(API_URL, json={"text": text})
-            if response.status_code == 200:
-                result = response.json()
-                st.success(f"Predicted Assignment Group: **{result.get('prediction')}**")
-                st.subheader("Model Output Probabilities")
-                st.json(result.get("probabilities"))
-            else:
-                st.error(f"API returned an error: {response.status_code}")
-        except Exception as e:
-            st.error(f"Failed to connect to API: {e}")
-
-st.caption("Built as part of M.Tech Project — AI-Driven Automated IT Ticket Classification and Assignment using NLP")
+# rest of your streamlit app follows...
