@@ -208,53 +208,166 @@ if st.button("Predict Assignment Group"):
 st.markdown("---")
 
 # -------------------------
-# 🌐 REST API CALL HANDLER (ServiceNow)
+# 🌐 REST API CALL HANDLER (ServiceNow POST-with-payload query param)
 # -------------------------
+import urllib.parse
+import requests
+from requests.auth import HTTPBasicAuth
+import time
+from pathlib import Path
+
 st.header("Incoming REST call (from ServiceNow)")
 
+# optional local log file (keeps track of incoming calls)
+INCOMING_LOG = Path("/tmp/streamlit_incoming_calls.jsonl")
+def append_incoming_log(entry: dict):
+    try:
+        INCOMING_LOG.parent.mkdir(parents=True, exist_ok=True)
+        with open(INCOMING_LOG, "a", encoding="utf-8") as fh:
+            fh.write(json.dumps(entry, ensure_ascii=False) + "\n")
+    except Exception:
+        pass
+
+def read_incoming_log(limit=25):
+    if not INCOMING_LOG.exists():
+        return []
+    try:
+        with open(INCOMING_LOG, "r", encoding="utf-8") as fh:
+            lines = [l.strip() for l in fh.readlines() if l.strip()]
+        return [json.loads(l) for l in lines[-limit:]]
+    except Exception:
+        return []
+
+# Helper functions to update incident (optional)
+def get_group_sysid(instance, user, pwd, group_name):
+    try:
+        q = "name=" + urllib.parse.quote(group_name)
+        url = f"https://{instance}/api/now/table/sys_user_group?sysparm_query={q}&sysparm_fields=sys_id,name&sysparm_limit=1"
+        r = requests.get(url, auth=HTTPBasicAuth(user, pwd), timeout=15)
+        r.raise_for_status()
+        res = r.json()
+        if res.get("result"):
+            return res["result"][0]["sys_id"]
+    except Exception as ex:
+        st.error(f"Group lookup failed: {ex}")
+    return None
+
+def update_incident_assignment(instance, user, pwd, ticket_id, group_sysid):
+    try:
+        # Resolve sys_id from incident number
+        q = "number=" + urllib.parse.quote(ticket_id)
+        url_lookup = f"https://{instance}/api/now/table/incident?sysparm_query={q}&sysparm_fields=sys_id&sysparm_limit=1"
+        r = requests.get(url_lookup, auth=HTTPBasicAuth(user, pwd), timeout=15)
+        r.raise_for_status()
+        data = r.json()
+        if not data.get("result"):
+            return False, "incident_not_found"
+        sysid = data["result"][0]["sys_id"]
+
+        patch_url = f"https://{instance}/api/now/table/incident/{sysid}"
+        payload = {"assignment_group": group_sysid}
+        headers = {"Content-Type": "application/json"}
+        r2 = requests.patch(patch_url, json=payload, auth=HTTPBasicAuth(user, pwd), headers=headers, timeout=15)
+        r2.raise_for_status()
+        return True, r2.json()
+    except Exception as ex:
+        return False, str(ex)
+
+# ---- Parse params (supports POST with payload param) ----
 params = st.experimental_get_query_params()
 if params:
     st.write("Query params received:")
     st.json(params)
 
-if "text" in params:
+incoming_text = ""
+ticket_id = ""
+token = params.get("token", [""])[0] if "token" in params else ""
+
+# Prefer 'payload' query param (contains JSON)
+if "payload" in params:
+    raw_payload = params.get("payload", [""])[0]
+    try:
+        decoded = urllib.parse.unquote(raw_payload)
+        payload_obj = json.loads(decoded)
+        ticket_id = payload_obj.get("ticket_id", "")
+        incoming_text = (payload_obj.get("short_description", "") or "") + " " + (payload_obj.get("description", "") or "")
+        st.subheader("Decoded JSON payload:")
+        st.json(payload_obj)
+    except Exception as e:
+        st.error(f"Failed to decode payload JSON: {e}")
+
+elif "text" in params:  # fallback for older GET calls
     incoming_text = params.get("text", [""])[0]
     ticket_id = params.get("ticket_id", [""])[0]
-    token = params.get("token", [""])[0]
 
+if incoming_text:
     st.subheader("Incoming REST Request")
     st.write("Ticket ID:", ticket_id)
     st.write("Text:", incoming_text)
 
-    # Token validation
-    if API_TOKEN:
-        if token != API_TOKEN:
-            st.error("❌ Unauthorized token. Check your Business Rule token.")
-            st.stop()
-
-    if not incoming_text.strip():
-        st.warning("No text provided.")
+    # token validation
+    if API_TOKEN and token != API_TOKEN:
+        st.error("❌ Unauthorized token. Check your Business Rule token.")
     else:
+        # apply rule-based logic first
         rule_group = apply_rules(incoming_text)
         if rule_group:
             st.success(f"🧭 Rule-based match: Assigned to **{rule_group}**")
+            pred_label = rule_group
+            pred_prob = 1.0
+            prob_dict = {rule_group: 1.0}
         else:
             try:
-                pred_label, pred_prob, prob_dict = predict_group_and_probs(
-                    model, vectorizer, label_encoder, incoming_text
-                )
+                pred_label, pred_prob, prob_dict = predict_group_and_probs(model, vectorizer, label_encoder, incoming_text)
                 st.write("**Predicted Assignment Group:**", pred_label)
                 st.write("Confidence:", f"{pred_prob:.3f}")
                 st.write("All group probabilities:")
                 st.json(prob_dict)
             except Exception as e:
-                st.error("Error during REST prediction:")
-                st.code(str(e))
+                st.error(f"Error during prediction: {e}")
+                pred_label = None
+                pred_prob = None
+                prob_dict = {}
+
+        # Log to server file
+        append_incoming_log({
+            "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
+            "ticket_id": ticket_id,
+            "pred_label": pred_label,
+            "pred_prob": pred_prob,
+            "text": incoming_text
+        })
+
+        # Optional: auto-update ServiceNow (if creds configured)
+        SN_INSTANCE = st.secrets.get("SERVICENOW_INSTANCE")
+        SN_USER = st.secrets.get("SERVICENOW_USER")
+        SN_PWD  = st.secrets.get("SERVICENOW_PWD")
+        if SN_INSTANCE and SN_USER and SN_PWD and pred_label:
+            group_sysid = get_group_sysid(SN_INSTANCE, SN_USER, SN_PWD, pred_label)
+            if group_sysid:
+                ok, msg = update_incident_assignment(SN_INSTANCE, SN_USER, SN_PWD, ticket_id, group_sysid)
+                if ok:
+                    st.success(f"✅ Updated incident {ticket_id} with assignment group {pred_label}")
+                else:
+                    st.warning(f"⚠️ Could not update incident: {msg}")
+            else:
+                st.warning(f"⚠️ Group '{pred_label}' not found in ServiceNow instance.")
+        else:
+            st.info("ℹ️ No ServiceNow credentials configured — skipping auto-update.")
 else:
-    st.info(
-        "No REST query params detected. Test via URL like: "
-        "`?text=laptop%20not%20booting&ticket_id=INC0010001&token=secret123`"
-    )
+    st.info("No incoming REST payload detected. Try calling: `?payload=%7B...%7D&token=secret123`")
+
+# Show recent incoming calls
+st.markdown("---")
+st.subheader("📜 Recent incoming REST calls (server log)")
+calls = read_incoming_log(limit=20)
+if calls:
+    for c in reversed(calls):
+        st.write(f"**{c['timestamp']}** — Ticket: **{c['ticket_id']}** — Predicted: **{c['pred_label']}** — Confidence: {c['pred_prob']:.2f}")
+        st.caption(c['text'])
+else:
+    st.info("No calls logged yet.")
+
 
 # -------------------------
 # 📋 FOOTER
