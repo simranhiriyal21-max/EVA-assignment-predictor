@@ -5,4 +5,6 @@ scikit-learn
 joblib
 pandas
 numpy
+sentence-transformers
+transformers
 
