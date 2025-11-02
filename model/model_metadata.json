@@ -12,5 +12,5 @@
     "Security Team",
     "Server Management"
   ],
-  "accuracy": 1.0
+  "accuracy_oof": 1.0
 }
