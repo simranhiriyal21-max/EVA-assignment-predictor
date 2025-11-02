@@ -1,0 +1,16 @@
+{
+  "num_classes": 10,
+  "classes": [
+    "Application Support",
+    "Cloud Team",
+    "Database Team",
+    "DevOps Team",
+    "Email Support",
+    "Hardware Support",
+    "IT Help Desk",
+    "Network Support",
+    "Security Team",
+    "Server Management"
+  ],
+  "accuracy": 1.0
+}
