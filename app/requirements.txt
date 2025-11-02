@@ -1,4 +1,8 @@
 streamlit
-requests
+lightgbm
+xgboost
+scikit-learn
+joblib
 pandas
 numpy
+
