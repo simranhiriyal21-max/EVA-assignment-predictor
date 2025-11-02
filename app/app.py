@@ -6,6 +6,10 @@ import traceback
 import json
 import numpy as np
 
+SERVICENOW_INSTANCE = st.secrets.get("SERVICENOW_INSTANCE", "")
+SERVICENOW_USER = st.secrets.get("SERVICENOW_USER", "")
+SERVICENOW_PWD = st.secrets.get("SERVICENOW_PWD", "")
+
 # Optional model libraries
 try:
     import xgboost as xgb
@@ -201,6 +205,17 @@ if st.button("Predict Assignment Group"):
                 st.write("Confidence:", f"{pred_prob:.3f}")
                 st.write("All group probabilities:")
                 st.json(prob_dict)
+                # Attempt auto-update back to ServiceNow
+if SERVICENOW_INSTANCE and SERVICENOW_USER and SERVICENOW_PWD:
+    st.info("🔁 Attempting to update ServiceNow incident assignment group...")
+    group_sysid = get_group_sysid(SERVICENOW_INSTANCE, SERVICENOW_USER, SERVICENOW_PWD, pred_label)
+    if group_sysid:
+        update_incident_assignment(SERVICENOW_INSTANCE, SERVICENOW_USER, SERVICENOW_PWD, ticket_id, group_sysid)
+    else:
+        st.warning(f"Group '{pred_label}' not found in ServiceNow.")
+else:
+    st.info("ℹ️ No ServiceNow credentials configured — skipping auto-update.")
+
             except Exception as e:
                 st.error("Error during prediction:")
                 st.code(str(e))
@@ -367,6 +382,85 @@ if calls:
         st.caption(c['text'])
 else:
     st.info("No calls logged yet.")
+
+# -------------------------
+# 🔗 SERVICENOW API HELPERS
+# -------------------------
+import requests
+from requests.auth import HTTPBasicAuth
+
+def get_group_sysid(instance, user, pwd, group_name):
+    """
+    Fetch sys_id of a ServiceNow group by its name.
+    """
+    try:
+        url = f"https://{instance}/api/now/table/sys_user_group"
+        params = {
+            "sysparm_query": f"name={group_name}",
+            "sysparm_fields": "sys_id,name",
+            "sysparm_limit": 1
+        }
+        r = requests.get(
+            url,
+            auth=HTTPBasicAuth(user, pwd),
+            params=params,
+            headers={"Accept": "application/json"},
+            timeout=15
+        )
+        r.raise_for_status()
+        data = r.json()
+        if data.get("result"):
+            return data["result"][0]["sys_id"]
+        else:
+            st.warning(f"Group '{group_name}' not found in ServiceNow.")
+            return None
+    except Exception as e:
+        st.error(f"Error fetching group sys_id: {e}")
+        return None
+
+
+def update_incident_assignment(instance, user, pwd, ticket_number, group_sysid):
+    """
+    Update an incident's assignment group field using ServiceNow REST Table API.
+    """
+    try:
+        # 1️⃣ Lookup incident sys_id by number
+        lookup_url = f"https://{instance}/api/now/table/incident"
+        lookup_params = {
+            "sysparm_query": f"number={ticket_number}",
+            "sysparm_fields": "sys_id",
+            "sysparm_limit": 1
+        }
+        lookup = requests.get(
+            lookup_url,
+            auth=HTTPBasicAuth(user, pwd),
+            params=lookup_params,
+            headers={"Accept": "application/json"},
+            timeout=15
+        )
+        lookup.raise_for_status()
+        res = lookup.json()
+        if not res.get("result"):
+            st.warning(f"Incident {ticket_number} not found.")
+            return False
+        sys_id = res["result"][0]["sys_id"]
+
+        # 2️⃣ PATCH the record to update assignment_group
+        patch_url = f"https://{instance}/api/now/table/incident/{sys_id}"
+        payload = {"assignment_group": group_sysid}
+        patch = requests.patch(
+            patch_url,
+            auth=HTTPBasicAuth(user, pwd),
+            json=payload,
+            headers={"Content-Type": "application/json", "Accept": "application/json"},
+            timeout=15
+        )
+        patch.raise_for_status()
+        st.success(f"✅ Updated incident {ticket_number} assignment group successfully.")
+        return True
+    except Exception as e:
+        st.error(f"❌ Failed to update incident: {e}")
+        return False
 
 
 # -------------------------
