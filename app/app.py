@@ -217,15 +217,170 @@ def predict_group_and_probs(model, vectorizer, label_encoder, text):
 # Rule-based quick overrides (optional, lightweight)
 # -------------------------
 RULES = {
+    # ----------------------------
+    # 💻 Application Support
+    # ----------------------------
+    "application not loading": "Application Support",
+    "app not loading": "Application Support",
+    "crash on start": "Application Support",
+    "app crashes": "Application Support",
+    "application crash": "Application Support",
+    "slow performance": "Application Support",
+    "software error": "Application Support",
+    "patch update required": "Application Support",
+    "application update failed": "Application Support",
+    "license expired": "Application Support",
+    "unable to launch": "Application Support",
+    "application failed to start": "Application Support",
+    "bug in application": "Application Support",
+
+    # ----------------------------
+    # 🌐 Network Support
+    # ----------------------------
+    "vpn": "Network Support",
+    "unable to connect to vpn": "Network Support",
+    "network": "Network Support",
+    "wifi": "Network Support",
+    "no internet": "Network Support",
+    "unstable connection": "Network Support",
+    "internet not working": "Network Support",
+    "ping failure": "Network Support",
+    "slow internet": "Network Support",
+    "connectivity": "Network Support",
+    "router": "Network Support",
+    "lan": "Network Support",
+    "wan": "Network Support",
+
+    # ----------------------------
+    # 🔒 Security Team
+    # ----------------------------
+    "security breach": "Security Team",
+    "antivirus": "Security Team",
+    "virus": "Security Team",
+    "malware": "Security Team",
+    "ransomware": "Security Team",
+    "firewall": "Security Team",
+    "phishing": "Security Team",
+    "breach": "Security Team",
+    "unauthorized access": "Security Team",
+    "unusual login": "Security Team",
+    "endpoint protection": "Security Team",
+    "antivirus expired": "Security Team",
+    "security alert": "Security Team",
+    "data leak": "Security Team",
+    "threat detected": "Security Team",
+    "account compromised": "Security Team",
+
+    # ----------------------------
+    # ☁️ Cloud Team
+    # ----------------------------
+    "azure": "Cloud Team",
+    "aws": "Cloud Team",
+    "cloud": "Cloud Team",
+    "deployment failed": "Cloud Team",
+    "vm creation failed": "Cloud Team",
+    "storage issue": "Cloud Team",
+    "cloud service": "Cloud Team",
+    "s3": "Cloud Team",
+    "resource not found": "Cloud Team",
+    "cloud instance": "Cloud Team",
+    "virtual machine": "Cloud Team",
+
+    # ----------------------------
+    # 🖥️ Hardware Support
+    # ----------------------------
+    "hardware": "Hardware Support",
+    "laptop": "Hardware Support",
     "not booting": "Hardware Support",
     "won't boot": "Hardware Support",
-    "blue screen": "Hardware Support",
-    "wifi": "Network Support",
-    "network": "Network Support",
-    "outlook": "Email Support",
-    "email": "Email Support",
-    "vpn": "Network Support",
-    "password": "IT Help Desk"
+    "no display": "Hardware Support",
+    "motherboard": "Hardware Support",
+    "system overheating": "Hardware Support",
+    "fan noise": "Hardware Support",
+    "hard disk": "Hardware Support",
+    "ssd": "Hardware Support",
+    "keyboard": "Hardware Support",
+    "mouse": "Hardware Support",
+    "screen flickering": "Hardware Support",
+    "battery": "Hardware Support",
+    "device not powering": "Hardware Support",
+    "power issue": "Hardware Support",
+
+    # ----------------------------
+    # 📧 Email Team
+    # ----------------------------
+    "outlook": "Email Team",
+    "email": "Email Team",
+    "mailbox": "Email Team",
+    "unable to send email": "Email Team",
+    "email not syncing": "Email Team",
+    "mail not received": "Email Team",
+    "exchange": "Email Team",
+    "office 365": "Email Team",
+    "imap": "Email Team",
+    "smtp": "Email Team",
+    "email login failed": "Email Team",
+
+    # ----------------------------
+    # 🗄️ Database Team
+    # ----------------------------
+    "database": "Database Team",
+    "sql": "Database Team",
+    "oracle": "Database Team",
+    "query timeout": "Database Team",
+    "db connection": "Database Team",
+    "unable to connect to database": "Database Team",
+    "table lock": "Database Team",
+    "record insert failed": "Database Team",
+    "data corruption": "Database Team",
+    "db migration": "Database Team",
+
+    # ----------------------------
+    # ⚙️ DevOps Team
+    # ----------------------------
+    "jenkins": "DevOps Team",
+    "pipeline": "DevOps Team",
+    "ci/cd": "DevOps Team",
+    "build failed": "DevOps Team",
+    "git": "DevOps Team",
+    "repository": "DevOps Team",
+    "docker": "DevOps Team",
+    "container": "DevOps Team",
+    "kubernetes": "DevOps Team",
+    "deployment script": "DevOps Team",
+    "environment variable": "DevOps Team",
+    "automation": "DevOps Team",
+
+    # ----------------------------
+    # 🧰 IT Help Desk
+    # ----------------------------
+    "password reset": "IT Help Desk",
+    "account locked": "IT Help Desk",
+    "unable to login": "IT Help Desk",
+    "access request": "IT Help Desk",
+    "new user creation": "IT Help Desk",
+    "system access": "IT Help Desk",
+    "account activation": "IT Help Desk",
+    "printer": "IT Help Desk",
+    "new laptop request": "IT Help Desk",
+    "software installation": "IT Help Desk",
+    "system setup": "IT Help Desk",
+
+    # ----------------------------
+    # 🖧 Server Management
+    # ----------------------------
+    "server": "Server Management",
+    "disk space": "Server Management",
+    "cpu utilization": "Server Management",
+    "memory": "Server Management",
+    "storage": "Server Management",
+    "backup": "Server Management",
+    "restore": "Server Management",
+    "file server": "Server Management",
+    "domain controller": "Server Management",
+    "dns": "Server Management",
+    "dhcp": "Server Management",
+    "server patching": "Server Management"
 }
 
 def apply_rules(text):
