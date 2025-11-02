@@ -384,13 +384,12 @@ RULES = {
 }
 
 def apply_rules(text):
-    if not text:
-        return None
     t = text.lower()
     for k, grp in RULES.items():
-        if k in t:
+        if k in t:  # exact substring
             return grp
     return None
+
 
 # -------------------------
 # ServiceNow secrets (Streamlit Secrets)
