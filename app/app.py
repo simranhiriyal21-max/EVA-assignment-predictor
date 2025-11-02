@@ -38,7 +38,7 @@ def repo_root_from_app():
 def load_artifacts():
     """
     Load model, vectorizer, optional label encoder and metadata.
-    Returns (model, vectorizer, label_encoder_or_None, metadata_dict_or_None, error_message_or_None)
+    Returns ({model dict}, None) or (None, error_message)
     """
     try:
         root = repo_root_from_app()
@@ -72,7 +72,7 @@ def load_artifacts():
                 missing.append("(no joblib model found in model/ folder)")
 
         if missing:
-            return None, None, None, None, f"Missing files: {missing}"
+            return None, f"Missing files: {missing}"
 
         # Load vectorizer and model
         vectorizer = joblib.load(tfidf_path)
@@ -250,24 +250,26 @@ if "text" in params:
     st.write("Ticket ID:", ticket_id)
     st.write("Text:", incoming_text)
 
-    # Simple token check (optional). If you don't want a token, remove this block.
-    if API_TOKEN and token and token != API_TOKEN:
-        st.error("Unauthorized token provided.")
+    # Strict token check: require token to match when API_TOKEN is set
+    if API_TOKEN:
+        if token != API_TOKEN:
+            st.error("Unauthorized token provided. The token is missing or does not match.")
+            st.stop()
+    # If token passes (or API_TOKEN is empty), continue
+    if not incoming_text.strip():
+        st.warning("No text provided in query param.")
     else:
-        if not incoming_text.strip():
-            st.warning("No text provided in query param.")
-        else:
-            try:
-                result = get_prediction_prob(model, vectorizer, incoming_text)
-                if isinstance(result, dict):
-                    st.write("Predicted class probabilities (per class):")
-                    st.json(result)
-                else:
-                    st.write("Predicted probability (class=1):", float(result))
-                    st.write("Predicted label (0/1 using 0.5 threshold):", int(float(result) >= 0.5))
-            except Exception as e:
-                st.error("Error during prediction for incoming REST call:")
-                st.code(str(e))
+        try:
+            result = get_prediction_prob(model, vectorizer, incoming_text)
+            if isinstance(result, dict):
+                st.write("Predicted class probabilities (per class):")
+                st.json(result)
+            else:
+                st.write("Predicted probability (class=1):", float(result))
+                st.write("Predicted label (0/1 using 0.5 threshold):", int(float(result) >= 0.5))
+        except Exception as e:
+            st.error("Error during prediction for incoming REST call:")
+            st.code(str(e))
 else:
     st.info("No incoming REST 'text' param detected. To test, call the app like: `?text=printer%20jam&ticket_id=INC1&token=secret123`")
 
